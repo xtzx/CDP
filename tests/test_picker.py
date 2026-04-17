@@ -29,3 +29,63 @@ def test_render_truncates_long_names():
     # (exact format can vary; assert that full 30-char name doesn't appear verbatim)
     assert ("a" * 30) not in lines[0]
     assert "/p" in lines[0]
+
+
+from unittest.mock import patch
+
+from cdp.picker import parse_selection, run
+
+
+def test_parse_selection_extracts_path():
+    line = "📌 gaokao              /Users/bjhl/gaokao"
+    assert parse_selection(line) == "/Users/bjhl/gaokao"
+
+
+def test_parse_selection_handles_padding_and_ellipsis():
+    line = "   web-capability…   /Users/bjhl/Documents/手写系列/web-capability-compiler"
+    assert parse_selection(line) == "/Users/bjhl/Documents/手写系列/web-capability-compiler"
+
+
+def test_parse_selection_empty_returns_none():
+    assert parse_selection("") is None
+    assert parse_selection("\n") is None
+
+
+def test_run_fzf_missing_returns_error(monkeypatch):
+    """If fzf isn't on PATH, run() should return None and print a helpful error."""
+    import cdp.picker as mod
+    monkeypatch.setattr(mod, "_fzf_available", lambda: False)
+    result = run([_p_for_run()])
+    assert result is None
+
+
+def _p_for_run():
+    from cdp.combine import Project
+    return Project(path="/a", mtime=0.0, display_name="a", pinned=False, alias=None)
+
+
+def test_run_returns_selected_path(monkeypatch):
+    """When fzf returns 0 with a line, run() extracts and returns its path."""
+    import cdp.picker as mod
+    monkeypatch.setattr(mod, "_fzf_available", lambda: True)
+
+    class FakeCompleted:
+        returncode = 0
+        stdout = "   a                  /a\n"
+
+    monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: FakeCompleted())
+    result = run([_p_for_run()])
+    assert result == "/a"
+
+
+def test_run_cancelled_returns_none(monkeypatch):
+    """Esc in fzf yields exit 130; run() returns None."""
+    import cdp.picker as mod
+    monkeypatch.setattr(mod, "_fzf_available", lambda: True)
+
+    class FakeCompleted:
+        returncode = 130
+        stdout = ""
+
+    monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: FakeCompleted())
+    assert run([_p_for_run()]) is None

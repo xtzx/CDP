@@ -64,9 +64,21 @@ def _cmd_list() -> int:
 
 
 def _cmd_picker() -> int:
-    # Implemented in a later task
-    print("picker: not yet implemented", file=sys.stderr)
-    return 2
+    from cdp import picker
+    cfg = cfg_mod.Config.load(constants.CONFIG_PATH)
+    discovered = projects.scan_recent_projects(constants.CLAUDE_PROJECTS_DIR)
+    display = combine.get_display_projects(discovered, cfg)
+    if not display:
+        print(
+            f"No recent projects. Use `{constants.COMMAND_NAME} <path>` to open one.",
+            file=sys.stderr,
+        )
+        return 1
+    selected = picker.run(display)
+    if selected is None:
+        return 130  # cancelled or error
+    print(selected)
+    return 0
 
 
 def _cmd_direct_path(raw: str) -> int:
