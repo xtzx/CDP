@@ -164,3 +164,40 @@ def test_direct_path_rejects_file(tmp_path):
 def test_direct_path_rejects_missing(tmp_path):
     r = _run([str(tmp_path / "nope")], tmp_path)
     assert r.returncode != 0
+
+
+def test_internal_render_outputs_picker_lines(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    claude_projects = tmp_path / ".claude/projects"
+    claude_projects.mkdir(parents=True)
+    encoded = str(tmp_path).replace("/", "-") + "-p"
+    (claude_projects / encoded).mkdir()
+    (claude_projects / encoded / "s.jsonl").write_text("{}")
+
+    r = _run(["_render"], tmp_path)
+    assert r.returncode == 0
+    # output should contain a line with the path
+    assert str(proj) in r.stdout
+
+
+def test_internal_toggle_pin_flips_state(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    # Starts unpinned
+    r1 = _run(["_toggle-pin", str(proj)], tmp_path)
+    assert r1.returncode == 0
+    assert "pinned" in (tmp_path / ".config/cdp/config.toml").read_text()
+    # Second call unpins
+    r2 = _run(["_toggle-pin", str(proj)], tmp_path)
+    assert r2.returncode == 0
+    assert "pinned" not in (tmp_path / ".config/cdp/config.toml").read_text()
+
+
+def test_internal_toggle_hide_flips_state(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    _run(["_toggle-hide", str(proj)], tmp_path)
+    assert "hidden" in (tmp_path / ".config/cdp/config.toml").read_text()
+    _run(["_toggle-hide", str(proj)], tmp_path)
+    assert "hidden" not in (tmp_path / ".config/cdp/config.toml").read_text()

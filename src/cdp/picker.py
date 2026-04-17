@@ -62,12 +62,18 @@ def run(projects: list) -> str | None:
 
     lines = render_lines(projects)
     stdin = "\n".join(lines)
+    import os as _os
+    python_exe = _os.environ.get("CDP_PYTHON") or sys.executable
+    prog = f"{python_exe} -m cdp"
     cmd = [
         "fzf",
         "--reverse",
         "--height=60%",
         "--prompt=project> ",
-        "--no-sort",  # we already sorted
+        "--no-sort",
+        f"--bind=ctrl-p:reload({prog} _toggle-pin {{}} >/dev/null 2>&1 && {prog} _render)",
+        f"--bind=ctrl-h:reload({prog} _toggle-hide {{}} >/dev/null 2>&1 && {prog} _render)",
+        f"--bind=ctrl-o:execute-silent({prog} _open {{}})",
     ]
     r = subprocess.run(cmd, input=stdin, capture_output=True, text=True)
     if r.returncode != 0:

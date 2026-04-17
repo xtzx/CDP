@@ -31,13 +31,29 @@ def main(argv: list[str] | None = None) -> int:
     sp_unalias = sub.add_parser("unalias", help="remove alias for a path")
     sp_unalias.add_argument("path", nargs="?", default=None)
 
+    # Internal commands used by fzf --bind; underscore-prefixed to hide from help.
+    # All of them receive the fzf-format line as argv; _render takes no arg.
+    sub.add_parser("_render", help=argparse.SUPPRESS)
+
+    sp_tp = sub.add_parser("_toggle-pin", help=argparse.SUPPRESS)
+    sp_tp.add_argument("line")
+
+    sp_th = sub.add_parser("_toggle-hide", help=argparse.SUPPRESS)
+    sp_th.add_argument("line")
+
+    sp_op = sub.add_parser("_open", help=argparse.SUPPRESS)
+    sp_op.add_argument("line")
+
     # Direct path mode is captured as a positional arg outside of subparsers.
     # argparse doesn't natively mix subparsers and a leading positional, so we
     # fall back to argv inspection for that case.
     if argv is None:
         argv = sys.argv[1:]
 
-    known_subcommands = {"list", "pin", "unpin", "hide", "unhide", "alias", "unalias"}
+    known_subcommands = {
+        "list", "pin", "unpin", "hide", "unhide", "alias", "unalias",
+        "_render", "_toggle-pin", "_toggle-hide", "_open",
+    }
     if argv and argv[0] not in known_subcommands and not argv[0].startswith("-"):
         return _cmd_direct_path(argv[0])
 
@@ -52,6 +68,14 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_alias(args.args)
     if args.cmd == "unalias":
         return _cmd_unalias(args.path)
+    if args.cmd == "_render":
+        return _cmd_render()
+    if args.cmd == "_toggle-pin":
+        return _cmd_toggle("pin", args.line)
+    if args.cmd == "_toggle-hide":
+        return _cmd_toggle("hide", args.line)
+    if args.cmd == "_open":
+        return _cmd_open(args.line)
     return 0
 
 
@@ -125,4 +149,44 @@ def _cmd_unalias(path: str | None) -> int:
     cfg = cfg_mod.Config.load(constants.CONFIG_PATH)
     cfg.clear_alias(target)
     cfg.save()
+    return 0
+
+
+def _cmd_render() -> int:
+    from cdp import picker
+    cfg = cfg_mod.Config.load(constants.CONFIG_PATH)
+    discovered = projects.scan_recent_projects(constants.CLAUDE_PROJECTS_DIR)
+    display = combine.get_display_projects(discovered, cfg)
+    for line in picker.render_lines(display):
+        print(line)
+    return 0
+
+
+def _cmd_toggle(kind: str, line: str) -> int:
+    """kind is 'pin' or 'hide'. line may be a full fzf line or just a path."""
+    from cdp import picker
+    parsed = picker.parse_selection(line)
+    path = parsed if parsed else line.strip()
+    if not path:
+        return 0
+    cfg = cfg_mod.Config.load(constants.CONFIG_PATH)
+    e = cfg._find(path)  # noqa: SLF001
+    currently_on = (kind == "pin" and e is not None and e.pinned) or \
+                   (kind == "hide" and e is not None and e.hidden)
+    if currently_on:
+        getattr(cfg, f"un{kind}")(path)
+    else:
+        getattr(cfg, kind)(path)
+    cfg.save()
+    return 0
+
+
+def _cmd_open(line: str) -> int:
+    """Open the highlighted path in Finder (via macOS `open`)."""
+    import subprocess as _sp
+    from cdp import picker
+    parsed = picker.parse_selection(line)
+    path = parsed if parsed else line.strip()
+    if path:
+        _sp.run(["open", path], check=False)
     return 0
