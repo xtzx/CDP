@@ -87,10 +87,26 @@ def _cmd_config_toggle(cmd: str, path: str | None) -> int:
 
 
 def _cmd_alias(args_list: list[str]) -> int:
-    print("alias: not yet implemented", file=sys.stderr)
-    return 2
+    """Parse `cdp alias [path] <name>`. 1 arg = path defaults to $PWD."""
+    import os as _os
+    if len(args_list) == 1:
+        path, name = None, args_list[0]
+    elif len(args_list) == 2:
+        path, name = args_list[0], args_list[1]
+    else:
+        print(f"usage: {constants.COMMAND_NAME} alias [path] <name>", file=sys.stderr)
+        return 2
+    target = _os.path.abspath(_os.path.expanduser(path)) if path else _os.getcwd()
+    cfg = cfg_mod.Config.load(constants.CONFIG_PATH)
+    cfg.set_alias(target, name)
+    cfg.save()
+    return 0
 
 
 def _cmd_unalias(path: str | None) -> int:
-    print("unalias: not yet implemented", file=sys.stderr)
-    return 2
+    import os as _os
+    target = _os.path.abspath(_os.path.expanduser(path)) if path else _os.getcwd()
+    cfg = cfg_mod.Config.load(constants.CONFIG_PATH)
+    cfg.clear_alias(target)
+    cfg.save()
+    return 0

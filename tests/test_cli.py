@@ -97,3 +97,40 @@ def test_hide_and_unhide(tmp_path):
     assert "hidden" in (tmp_path / ".config/cdp/config.toml").read_text()
     _run(["unhide", str(proj)], tmp_path)
     assert "hidden" not in (tmp_path / ".config/cdp/config.toml").read_text()
+
+
+def test_alias_set_and_show_in_list(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    claude_projects = tmp_path / ".claude/projects"
+    claude_projects.mkdir(parents=True)
+    encoded = str(tmp_path).replace("/", "-") + "-p"
+    (claude_projects / encoded).mkdir()
+    (claude_projects / encoded / "s.jsonl").write_text("{}")
+
+    r = _run(["alias", str(proj), "foobar"], tmp_path)
+    assert r.returncode == 0
+    r2 = _run(["list"], tmp_path)
+    assert f"{proj}\tfoobar" in r2.stdout
+
+
+def test_alias_pwd_default(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path)
+    env["XDG_CONFIG_HOME"] = str(tmp_path / ".config")
+    r = subprocess.run(
+        [sys.executable, "-m", "cdp", "alias", "myname"],
+        capture_output=True, text=True, env=env, cwd=str(proj),
+    )
+    assert r.returncode == 0
+    assert 'alias = "myname"' in (tmp_path / ".config/cdp/config.toml").read_text()
+
+
+def test_unalias_removes(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    _run(["alias", str(proj), "x"], tmp_path)
+    _run(["unalias", str(proj)], tmp_path)
+    assert "alias" not in (tmp_path / ".config/cdp/config.toml").read_text()
