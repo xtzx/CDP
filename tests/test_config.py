@@ -113,3 +113,87 @@ def test_pin_preserves_order_of_existing_pins(tmp_path):
     cfg.pin("/b")
     cfg.pin("/c")
     assert [e.path for e in cfg.entries if e.pinned] == ["/a", "/b", "/c"]
+
+
+# --- Robustness / safety regressions ---------------------------------------
+
+
+def test_load_rejects_non_bool_pinned(tmp_path):
+    """M-1: a string 'false' must NOT be silently treated as truthy."""
+    f = tmp_path / "c.toml"
+    f.write_text('[[project]]\npath = "/a"\npinned = "false"\n')
+    with pytest.raises(ValueError) as exc_info:
+        Config.load(f)
+    assert "pinned" in str(exc_info.value).lower()
+
+
+def test_load_rejects_non_bool_hidden(tmp_path):
+    """M-1: integers are not bools — reject, don't coerce."""
+    f = tmp_path / "c.toml"
+    f.write_text('[[project]]\npath = "/a"\nhidden = 1\n')
+    with pytest.raises(ValueError) as exc_info:
+        Config.load(f)
+    assert "hidden" in str(exc_info.value).lower()
+
+
+def test_load_rejects_wrong_project_shape(tmp_path):
+    """M-3: `project = "oops"` (scalar) must raise a clear error, not crash cryptically."""
+    f = tmp_path / "c.toml"
+    f.write_text('project = "oops"\n')
+    with pytest.raises(ValueError) as exc_info:
+        Config.load(f)
+    msg = str(exc_info.value).lower()
+    assert "project" in msg
+    assert str(f) in str(exc_info.value) or "array" in msg or "table" in msg
+
+
+def test_save_writes_atomically(tmp_path, monkeypatch):
+    """I-2: save() must write to a temp file and os.replace into place."""
+    import cdp.config as cfg_mod
+
+    f = tmp_path / "c.toml"
+    cfg = Config.load(f)
+    cfg.pin("/a")
+
+    replace_calls: list[tuple] = []
+    original_replace = cfg_mod.os.replace
+
+    def tracking_replace(src, dst):
+        replace_calls.append((str(src), str(dst)))
+        return original_replace(src, dst)
+
+    monkeypatch.setattr(cfg_mod.os, "replace", tracking_replace)
+
+    cfg.save()
+    assert len(replace_calls) == 1, "save() should use os.replace exactly once"
+    assert "/a" in f.read_text()
+    # no stray .tmp file
+    assert list(f.parent.glob("*.tmp")) == []
+
+
+def test_save_leaves_original_intact_on_failure(tmp_path, monkeypatch):
+    """I-2: if os.replace fails mid-write, the original file is preserved."""
+    import cdp.config as cfg_mod
+
+    f = tmp_path / "c.toml"
+    # Pre-populate with committed original state
+    seed = Config.load(f)
+    seed.pin("/original")
+    seed.save()
+    original_content = f.read_text()
+
+    # Reload and modify; simulate crash during the rename step
+    cfg = Config.load(f)
+    cfg.pin("/new")
+
+    def failing_replace(src, dst):
+        raise OSError("simulated crash")
+
+    monkeypatch.setattr(cfg_mod.os, "replace", failing_replace)
+
+    with pytest.raises(OSError):
+        cfg.save()
+
+    # Original file must be byte-identical to pre-save state
+    assert f.read_text() == original_content
+    assert "/new" not in f.read_text()

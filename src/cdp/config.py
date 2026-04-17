@@ -1,6 +1,7 @@
 """Read and write ~/.config/cdp/config.toml using tomlkit to preserve comments."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -14,6 +15,20 @@ class ConfigEntry:
     alias: str | None = None
     pinned: bool = False
     hidden: bool = False
+
+
+def _require_bool(value, field: str, file: Path) -> bool:
+    # tomlkit's Bool is a subclass of `int` but NOT of `bool`, so check via its
+    # class name. Built-in Python bools pass isinstance(value, bool).
+    if isinstance(value, bool):
+        return value
+    type_name = type(value).__name__
+    if type_name in ("Bool", "Boolean"):
+        return bool(value)
+    raise ValueError(
+        f"invalid TOML at {file}: `{field}` must be a boolean (true/false), "
+        f"got {type_name} ({value!r})"
+    )
 
 
 class Config:
@@ -30,14 +45,25 @@ class Config:
             doc = tomlkit.parse(path.read_text())
         except Exception as e:
             raise ValueError(f"invalid TOML at {path}: {e}") from e
+
+        raw_projects = doc.get("project", [])
+        # Guard: `project` must be an array of tables, not a scalar or a plain
+        # table. `list` catches plain lists; tomlkit's AoT subclasses `list` so
+        # it passes this check too.
+        if not isinstance(raw_projects, list):
+            raise ValueError(
+                f"invalid TOML at {path}: `project` must be an array of tables "
+                f"([[project]]), got {type(raw_projects).__name__}"
+            )
+
         entries = []
-        for tbl in doc.get("project", []):
+        for tbl in raw_projects:
             entries.append(
                 ConfigEntry(
                     path=str(tbl["path"]),
                     alias=str(tbl["alias"]) if "alias" in tbl else None,
-                    pinned=bool(tbl.get("pinned", False)),
-                    hidden=bool(tbl.get("hidden", False)),
+                    pinned=_require_bool(tbl.get("pinned", False), "pinned", path),
+                    hidden=_require_bool(tbl.get("hidden", False), "hidden", path),
                 )
             )
         return cls(path=path, doc=doc, entries=entries)
@@ -58,7 +84,12 @@ class Config:
             new_array.append(t)
         self._doc["project"] = new_array
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        self._path.write_text(tomlkit.dumps(self._doc))
+        # Atomic write: stage to a sibling .tmp then rename. A process kill or
+        # disk-full between the write and the rename leaves the original file
+        # intact.
+        tmp = self._path.with_suffix(self._path.suffix + ".tmp")
+        tmp.write_text(tomlkit.dumps(self._doc))
+        os.replace(tmp, self._path)
 
     # --- Mutations -----------------------------------------------------------
 
