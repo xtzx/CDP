@@ -70,9 +70,13 @@ def _cmd_picker() -> int:
 
 
 def _cmd_direct_path(raw: str) -> int:
-    # Implemented in a later task
-    print(f"direct path mode: not yet implemented ({raw!r})", file=sys.stderr)
-    return 2
+    import os as _os
+    target = _os.path.abspath(_os.path.expanduser(raw))
+    if not _os.path.isdir(target):
+        print(f"error: {target} is not a directory", file=sys.stderr)
+        return 1
+    print(target)
+    return 0
 
 
 def _cmd_config_toggle(cmd: str, path: str | None) -> int:

@@ -134,3 +134,33 @@ def test_unalias_removes(tmp_path):
     _run(["alias", str(proj), "x"], tmp_path)
     _run(["unalias", str(proj)], tmp_path)
     assert "alias" not in (tmp_path / ".config/cdp/config.toml").read_text()
+
+
+def test_direct_path_prints_absolute(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    r = _run([str(proj)], tmp_path)
+    assert r.returncode == 0
+    assert r.stdout.strip() == str(proj)
+
+
+def test_direct_path_expands_tilde(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    # HOME is tmp_path, so ~/p → tmp_path/p
+    r = _run(["~/p"], tmp_path)
+    assert r.returncode == 0
+    assert r.stdout.strip() == str(proj)
+
+
+def test_direct_path_rejects_file(tmp_path):
+    f = tmp_path / "f.txt"
+    f.write_text("x")
+    r = _run([str(f)], tmp_path)
+    assert r.returncode != 0
+    assert "not a directory" in r.stderr
+
+
+def test_direct_path_rejects_missing(tmp_path):
+    r = _run([str(tmp_path / "nope")], tmp_path)
+    assert r.returncode != 0
