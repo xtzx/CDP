@@ -31,3 +31,6 @@ pip-wheel-metadata/
 .idea/
 .vscode/
 *.swp
+
+# Install state (tracks last-installed command name for rename cleanup)
+.installed_name
