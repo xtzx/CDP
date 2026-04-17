@@ -1,4 +1,4 @@
-# cdp · 终端项目切换工具 设计文档
+# cdp · *终端项目切换工具* 设计文档
 
 - **日期**：2026-04-17
 - **状态**：Design approved，等待 writing-plans
@@ -100,18 +100,20 @@ cdp/
 
 ### 5.1 子命令列表
 
-| 命令 | 行为 |
-|---|---|
-| `cdp` | 打开 fzf 选择器。Enter 进入项目 + 启动 claude。Esc/ctrl-c 什么都不做。 |
-| `cdp <path>` | 直接 `cd <path> && claude`。路径支持 `~` 展开和相对路径。非目录则错误退出。不自动 pin；首次用完 claude 之后该路径自然出现在 `~/.claude/projects/` 里，下次在列表中显示。 |
-| `cdp pin [path]` | 把路径写入 `config.toml` 并标记 `pinned=true`。`path` 缺省 = `$PWD`。 |
-| `cdp unpin [path]` | 从配置中移除 pin 标记（如果条目只剩 pin 一个属性则删掉整条）。 |
-| `cdp hide [path]` | 给路径标记 `hidden=true`。 |
-| `cdp unhide [path]` | 移除 hide 标记。 |
-| `cdp alias [path] <name>` | 给路径设置别名 `<name>`，fzf 列表的"名字"列展示别名。 |
-| `cdp unalias [path]` | 移除别名。 |
-| `cdp list` | 按最终排序纯文本打印项目，格式 `<path>\t<display_name>`。用于脚本调用 / 调试。 |
-| `cdp --help` | argparse 自动生成。 |
+
+| 命令                        | 行为                                                                                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `cdp`                     | 打开 fzf 选择器。Enter 进入项目 + 启动 claude。Esc/ctrl-c 什么都不做。                                                                 |
+| `cdp <path>`              | 直接 `cd <path> && claude`。路径支持 `~` 展开和相对路径。非目录则错误退出。不自动 pin；首次用完 claude 之后该路径自然出现在 `~/.claude/projects/` 里，下次在列表中显示。 |
+| `cdp pin [path]`          | 把路径写入 `config.toml` 并标记 `pinned=true`。`path` 缺省 = `$PWD`。                                                           |
+| `cdp unpin [path]`        | 从配置中移除 pin 标记（如果条目只剩 pin 一个属性则删掉整条）。                                                                                |
+| `cdp hide [path]`         | 给路径标记 `hidden=true`。                                                                                                |
+| `cdp unhide [path]`       | 移除 hide 标记。                                                                                                         |
+| `cdp alias [path] <name>` | 给路径设置别名 `<name>`，fzf 列表的"名字"列展示别名。                                                                                  |
+| `cdp unalias [path]`      | 移除别名。                                                                                                               |
+| `cdp list`                | 按最终排序纯文本打印项目，格式 `<path>\t<display_name>`。用于脚本调用 / 调试。                                                               |
+| `cdp --help`              | argparse 自动生成。                                                                                                      |
+
 
 ### 5.2 shell wrapper 关键片段
 
@@ -168,20 +170,22 @@ cdp() {
 
 1. **pin 区**（`pinned=true`）：按 config.toml 里 `[[project]]` 条目的出现顺序
 2. **普通区**：按 `~/.claude/projects/<encoded>/*.jsonl` 所有文件的最大 mtime 倒序
-3. **`hidden=true` 的**：完全不展示
+3. `**hidden=true` 的**：完全不展示
 4. 目录已删除（`os.path.isdir` 为假）的：也不展示（静默跳过）
 
 ### 6.3 热键
 
-| 键 | 动作 |
-|---|---|
-| `↑`/`↓` 或 `ctrl-j`/`ctrl-k` | 上下移动 |
-| 任意可打印字符 | fzf 模糊过滤 |
-| `Enter` | 确认选中，wrapper 执行 `cd <path> && claude` |
-| `Esc` / `ctrl-c` | 退出不做任何事 |
-| `ctrl-p` | 钉住 / 取消钉住当前高亮项（fzf reload 刷新列表） |
-| `ctrl-h` | 隐藏当前高亮项 |
-| `ctrl-o` | `open <path>`（在 Finder 打开），不退出选择器 |
+
+| 键                           | 动作                                    |
+| --------------------------- | ------------------------------------- |
+| `↑`/`↓` 或 `ctrl-j`/`ctrl-k` | 上下移动                                  |
+| 任意可打印字符                     | fzf 模糊过滤                              |
+| `Enter`                     | 确认选中，wrapper 执行 `cd <path> && claude` |
+| `Esc` / `ctrl-c`            | 退出不做任何事                               |
+| `ctrl-p`                    | 钉住 / 取消钉住当前高亮项（fzf reload 刷新列表）       |
+| `ctrl-h`                    | 隐藏当前高亮项                               |
+| `ctrl-o`                    | `open <path>`（在 Finder 打开），不退出选择器     |
+
 
 实现要点：`ctrl-p` / `ctrl-h` 通过 `fzf --bind "ctrl-p:reload(...)"` 调用一条不对外暴露的内部命令（如 `python3 -m cdp _toggle_pin {}`），内部命令修改 config.toml 后重新生成列表内容，fzf 的 `reload` 动作重绘视图。
 
@@ -244,17 +248,14 @@ alias = "银河"
 3. 在 repo 根创建 venv：`python3 -m venv .venv`
 4. `.venv/bin/pip install -e .`（editable，改代码立即生效）
 5. 往 `~/.zshrc` 追加（幂等，用标记注释检测是否已注入）：
-
-   ```
+  ```
    # >>> cdp >>>
    export CDP_HOME="/path/to/repo"
    export CDP_PYTHON="$CDP_HOME/.venv/bin/python3"
    source "$CDP_HOME/shell/cdp.zsh"
    # <<< cdp <<<
-   ```
-
+  ```
    `shell/cdp.zsh` 里调用 Python 时用 `$CDP_PYTHON`（拿到 venv 里的解释器）。
-
 6. 支持 `./install.sh --name <newname>` 覆盖命令名：改 `constants.py`、改 `shell/cdp.zsh` 里的函数名、注入 `~/.zshrc` 的 source 语句不变（文件名不随命令名走，避免复杂化）
 7. 提示用户 `source ~/.zshrc` 或开新终端生效
 
@@ -268,20 +269,22 @@ alias = "银河"
 
 ## 9. 错误处理与边界情况
 
-| 场景 | 行为 |
-|---|---|
-| `~/.claude/projects/` 不存在（全新机器） | 选择器展示空列表 + 顶部提示 `No recent projects. Use \`cdp <path>\` to open one.` |
-| 有记录但全部被 hide 或目录已删 | 同上 |
-| config.toml 的某条 pin 指向已删目录 | 静默跳过（不显示），配置文件不动 |
-| `cdp pin /x/y/z` 路径不存在 | 打印 `warning: /x/y/z does not exist, pinning anyway` 到 stderr，成功写入配置 |
-| `cdp <path>` 传入非目录 | 错误退出：`error: <path> is not a directory` |
-| `fzf` 未安装 | 启动 picker 时检测，打印 `fzf not found. Install via: brew install fzf`，退出码 1 |
-| `claude` 未安装 | wrapper 在 `cd` 之后执行 `claude` 时由 shell 报错（`command not found`），不在 python 侧做检测 |
-| 用户 Esc 退出 fzf | fzf 退出码 130。python 侦测到后自身也用非 0 退出，wrapper 收到非 0 → 不 cd，当前目录不变 |
-| session 文件 mtime 读不到（IO/权限） | 视为 mtime=0 排到末尾，不抛异常 |
-| 路径解码包含 `-` 的 basename | 见 7.1 的回退启发式 |
-| 两个项目 basename 同名（或 alias 同名） | 不做特殊处理，靠路径列区分 |
-| config.toml 手动写坏（tomlkit 解析失败） | 打印 `error: ~/.config/cdp/config.toml is invalid: <detail>` 并退出码 1，不尝试自动修复 |
+
+| 场景                              | 行为                                                                           |
+| ------------------------------- | ---------------------------------------------------------------------------- |
+| `~/.claude/projects/` 不存在（全新机器） | 选择器展示空列表 + 顶部提示 `No recent projects. Use \`cdp to open one.`                 |
+| 有记录但全部被 hide 或目录已删              | 同上                                                                           |
+| config.toml 的某条 pin 指向已删目录      | 静默跳过（不显示），配置文件不动                                                             |
+| `cdp pin /x/y/z` 路径不存在          | 打印 `warning: /x/y/z does not exist, pinning anyway` 到 stderr，成功写入配置          |
+| `cdp <path>` 传入非目录              | 错误退出：`error: <path> is not a directory`                                      |
+| `fzf` 未安装                       | 启动 picker 时检测，打印 `fzf not found. Install via: brew install fzf`，退出码 1        |
+| `claude` 未安装                    | wrapper 在 `cd` 之后执行 `claude` 时由 shell 报错（`command not found`），不在 python 侧做检测 |
+| 用户 Esc 退出 fzf                   | fzf 退出码 130。python 侦测到后自身也用非 0 退出，wrapper 收到非 0 → 不 cd，当前目录不变                |
+| session 文件 mtime 读不到（IO/权限）     | 视为 mtime=0 排到末尾，不抛异常                                                         |
+| 路径解码包含 `-` 的 basename           | 见 7.1 的回退启发式                                                                 |
+| 两个项目 basename 同名（或 alias 同名）    | 不做特殊处理，靠路径列区分                                                                |
+| config.toml 手动写坏（tomlkit 解析失败）  | 打印 `error: ~/.config/cdp/config.toml is invalid: <detail>` 并退出码 1，不尝试自动修复    |
+
 
 ## 10. 测试策略（精简版）
 
@@ -290,12 +293,10 @@ alias = "银河"
 - `tests/test_projects.py`
   - 伪造 `tmp_path` 下的 fake `~/.claude/projects/` 树，验证路径解码 + mtime 排序
   - 目录不存在被过滤（静默跳过）
-
 - `tests/test_config.py`
   - 读一个典型 toml → 得到正确内部结构
   - 写 pin/alias 后再读 → 内容一致，且原注释保留
   - toml 格式错误时抛明确异常
-
 - `tests/test_cli.py`
   - 用 `subprocess.run` 跑 `python -m cdp list`，断言输出格式
   - `cdp alias foo` 后 `cdp list` 显示用 alias
@@ -324,3 +325,4 @@ alias = "银河"
 - **为何 pin/hide/alias 统一在一个 `[[project]]` 表？** 同一个项目的所有属性放一起直观，避免"同一路径在三段里分别出现"的冗余。
 - **为何 fzf 而非编号列表？** 项目多时模糊过滤差别巨大；fzf 几乎是 macOS 开发者标配。
 - **为何主命令走 shell function 而非把 Python 做成独立二进制？** 子进程不能改父 shell 的 pwd，这是 shell 切目录工具（z / zoxide / fasd）的标准做法。
+
