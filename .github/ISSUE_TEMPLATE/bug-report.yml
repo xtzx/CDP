@@ -1,0 +1,58 @@
+name: Bug 报告
+description: 报告实际行为与预期不符的问题
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        提交前请先确认：
+
+        - 已阅读 `README`
+        - 已查看当前设计文档与实施计划
+        - 问题不是已知的“尚未实现”能力
+  - type: textarea
+    id: summary
+    attributes:
+      label: 问题概述
+      description: 用 1 到 3 句话描述问题是什么
+      placeholder: 例如：设计文档中的某个命令行为与实施计划不一致
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现方式
+      description: 如果是已实现后的行为问题，请写清复现步骤；如果是文档问题，请写清定位路径
+      placeholder: |
+        1. 打开 ...
+        2. 执行 ...
+        3. 看到 ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期结果
+      placeholder: 应该发生什么
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果
+      placeholder: 实际发生了什么
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: 环境信息
+      description: 可填写系统、shell、Python、fzf、claude CLI 等版本
+      placeholder: macOS 14 / zsh / Python 3.11 / fzf 0.58 ...
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 可附带截图、日志、关联提交或其他上下文

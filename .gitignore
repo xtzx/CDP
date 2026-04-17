@@ -11,6 +11,21 @@ venv/
 build/
 dist/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+coverage/
+htmlcov/
+pip-wheel-metadata/
+
+# Env / logs
+.env
+.env.*
+!.env.example
+*.log
+.python-version
 
 # Editors
 .idea/

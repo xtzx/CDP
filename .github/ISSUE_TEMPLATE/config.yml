@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 阅读 README
+    url: https://github.com/xtzx/CDP/blob/main/README.md
+    about: 先了解项目当前状态、范围和协作约定。
+  - name: 阅读设计文档
+    url: https://github.com/xtzx/CDP/blob/main/docs/superpowers/specs/2026-04-17-cdp-terminal-tool-design.md
+    about: 涉及能力范围、交互细节和技术方案时，请先阅读设计文档。
