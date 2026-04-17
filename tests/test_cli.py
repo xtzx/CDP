@@ -44,3 +44,56 @@ def test_list_with_one_project(tmp_path):
     assert r.returncode == 0
     # Format: <path>\t<display_name>
     assert f"{proj}\tgaokao" in r.stdout
+
+
+def test_pin_uses_pwd_when_no_arg(tmp_path):
+    proj = tmp_path / "myproj"
+    proj.mkdir()
+    # Run with cwd=proj so $PWD default resolves there
+    env = os.environ.copy()
+    env["HOME"] = str(tmp_path)
+    env["XDG_CONFIG_HOME"] = str(tmp_path / ".config")
+    r = subprocess.run(
+        [sys.executable, "-m", "cdp", "pin"],
+        capture_output=True, text=True, env=env, cwd=str(proj),
+    )
+    assert r.returncode == 0
+    toml_text = (tmp_path / ".config/cdp/config.toml").read_text()
+    assert str(proj) in toml_text
+    assert "pinned" in toml_text
+
+
+def test_pin_explicit_path(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    r = _run(["pin", str(proj)], tmp_path)
+    assert r.returncode == 0
+    toml_text = (tmp_path / ".config/cdp/config.toml").read_text()
+    assert str(proj) in toml_text
+
+
+def test_pin_nonexistent_path_warns_but_succeeds(tmp_path):
+    target = str(tmp_path / "does-not-exist")
+    r = _run(["pin", target], tmp_path)
+    assert r.returncode == 0
+    assert "does not exist" in r.stderr
+    # still recorded
+    assert target in (tmp_path / ".config/cdp/config.toml").read_text()
+
+
+def test_unpin_removes(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    _run(["pin", str(proj)], tmp_path)
+    _run(["unpin", str(proj)], tmp_path)
+    toml_text = (tmp_path / ".config/cdp/config.toml").read_text()
+    assert "pinned" not in toml_text
+
+
+def test_hide_and_unhide(tmp_path):
+    proj = tmp_path / "p"
+    proj.mkdir()
+    _run(["hide", str(proj)], tmp_path)
+    assert "hidden" in (tmp_path / ".config/cdp/config.toml").read_text()
+    _run(["unhide", str(proj)], tmp_path)
+    assert "hidden" not in (tmp_path / ".config/cdp/config.toml").read_text()

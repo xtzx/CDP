@@ -76,9 +76,14 @@ def _cmd_direct_path(raw: str) -> int:
 
 
 def _cmd_config_toggle(cmd: str, path: str | None) -> int:
-    # Implemented in a later task
-    print(f"{cmd}: not yet implemented", file=sys.stderr)
-    return 2
+    import os as _os
+    target = _os.path.abspath(_os.path.expanduser(path)) if path else _os.getcwd()
+    if not _os.path.isdir(target):
+        print(f"warning: {target} does not exist, {cmd}ning anyway", file=sys.stderr)
+    cfg = cfg_mod.Config.load(constants.CONFIG_PATH)
+    getattr(cfg, cmd)(target)
+    cfg.save()
+    return 0
 
 
 def _cmd_alias(args_list: list[str]) -> int:
